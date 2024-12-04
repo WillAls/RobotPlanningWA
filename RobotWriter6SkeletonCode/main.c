@@ -28,7 +28,52 @@ void scaleFontData(float height);
 void generateGCode(const char *text, float height);
 
 //Function to send commands to the robot
-void SendCommands (char *buffer );
+void SendCommands (char *buffer )
+{
+    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
+    PrintBuffer (&buffer[0]);
+    WaitForReply();
+}
+
+// Font data to store all characters
+Character fontData[MAX_CHARACTERS];
+
+// Function to load font data from file
+// The font file contains movement data for characters
+void loadFontData(const char *filename) {
+    FILE *file = fopen(filename, "r");  // Open the font file
+    if (!file) {
+        printf("Error opening font file!\n");
+        exit(1);
+    }
+
+    char line[256];
+    int currentChar = -1;
+    int numMovements = 0;
+
+    // Read the file line by line
+    while (fgets(line, sizeof(line), file)) {
+        int x, y, p;
+        if (strncmp(line, "999", 3) == 0) {  // Start of a new character definition
+            if (currentChar != -1) {
+                fontData[currentChar].num_movements = numMovements;  // Save the movements count
+            }
+            // Parse the character ID and number of movements
+            sscanf(line, "999 %d %d", &currentChar, &numMovements);
+        } else {  // Parse movement data (X, Y, Pen state)
+            sscanf(line, "%d %d %d", &x, &y, &p);
+            fontData[currentChar].movements[numMovements++] = (Movement){x, y, p};
+        }
+    }
+
+    // Finalize the last character's movements
+    if (currentChar != -1) {
+        fontData[currentChar].num_movements = numMovements;
+    }
+
+    fclose(file);  // Close the file
+}
+
 
 int main()
 {
@@ -77,11 +122,4 @@ int main()
 
 // Send the data to the robot - note in 'PC' mode you need to hit space twice
 // as the dummy 'WaitForReply' has a getch() within the function.
-void SendCommands (char *buffer )
-{
-    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
-    PrintBuffer (&buffer[0]);
-    WaitForReply();
-    Sleep(100); // Can omit this when using the writing robot but has minimal effect
-    // getch(); // Omit this once basic testing with emulator has taken place
-}
+
