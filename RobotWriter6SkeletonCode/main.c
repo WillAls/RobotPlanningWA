@@ -90,13 +90,121 @@ void scaleFontData(float height) {
     }
 }
 
+// Function to generate G-code for drawing the input text
+void generateGCode(const char *text, float height) {
+    scaleFontData(height);  // Scale the font data based on the height
+
+    // Initialize drawing parameters
+    int x_pos = 0;                      // Current X position
+    int y_pos = -(int)height;           // Start below the X-axis by the input height
+    int penState = 0;                   // Current pen state: 0 = pen up, 1 = pen down
+    int charWidth = (int)(height * 1.0f);  // Width of each character, scaled with height
+    int wordGap = charWidth;            // Gap between words
+    int lineGap = (int)(height + 5.0f); // Vertical gap between lines
+    int maxLineWidth = 100;             // Maximum line width in mm
+    int lowestY = y_pos;                // Tracks the lowest Y point on the current line
+    int minY = -90 - (int)height;       // Y-axis limit adjusted for starting height
+
+    char buffer[256];
+    char word[128];  // Buffer to hold a single word
+    int wordIndex = 0;
+
+    // Process the input text character by character
+    for (const char *ptr = text; *ptr != '\0'; ptr++) {
+        char c = *ptr;
+
+        // Handle word delimiters (space, newline, end of text)
+        if (c == ' ' || c == '\n' || *(ptr + 1) == '\0') {
+            // Add the last character to the word if it's not already processed
+            if (*(ptr + 1) == '\0' && c != ' ' && c != '\n') {
+                word[wordIndex++] = c;
+            }
+
+            word[wordIndex] = '\0';  // Null-terminate the word
+
+            // Calculate the word width
+            int wordWidth = (int)((size_t)strlen(word) * (size_t)charWidth);
+
+            // Move to the next line if the word doesn't fit
+            if (x_pos + wordWidth > maxLineWidth) {
+                y_pos = lowestY - lineGap;
+                if (y_pos < minY) {  // Check for Y-axis limit
+                    printf("Error: Text exceeds Y-axis limit.\n");
+                    return;
+                }
+                x_pos = 0;           // Reset X position
+                lowestY = y_pos;     // Reset lowest Y for the new line
+                sprintf(buffer, "G0 X0 Y%d\n", y_pos); 
+                SendCommands(buffer); // Move to the new line
+            }
+
+            // Process each character in the word
+            for (int i = 0; word[i] != '\0'; i++) {
+                unsigned char currentChar = (unsigned char)word[i];  // Ensure unsigned subscript
+
+                if (currentChar >= 32 && currentChar <= 126) {  // Printable ASCII characters only
+                    Character charData = fontData[currentChar];
+                    for (int j = 0; j < charData.num_movements; j++) {
+                        Movement m = charData.movements[j];
+
+                        // Calculate the new X and Y positions
+                        int newX = m.x + x_pos;
+                        int newY = m.y + y_pos;
+
+                        if (newY < lowestY) {  // Update the lowest Y position
+                            lowestY = newY;
+                        }
+
+                        // Handle pen state changes
+                        if (m.pen != penState) {
+                            penState = m.pen;
+                            sprintf(buffer, penState == 1 ? "S1000\n" : "S0\n");  // Pen up or down
+                            SendCommands(buffer);
+                        }
+
+                        // Output movement G-code
+                        sprintf(buffer, penState == 1 ? "G1 X%d Y%d\n" : "G0 X%d Y%d\n", newX, newY);
+                        SendCommands(buffer);
+                    }
+                    x_pos += charWidth;  // Move the X position for the next character
+                }
+            }
+            x_pos += wordGap;  // Add gap after a word
+
+            // Handle newline characters
+            if (c == '\n') {
+                y_pos = lowestY - lineGap;
+                if (y_pos < minY) {  // Check for Y-axis limit
+                    printf("Error: Text exceeds Y-axis limit.\n");
+                    return;
+                }
+                x_pos = 0;          // Reset X position
+                lowestY = y_pos;    // Reset lowest Y for the new line
+                sprintf(buffer, "G0 X0 Y%d\n", y_pos);
+                SendCommands(buffer);  // Move to the new line
+            }
+
+            wordIndex = 0;  // Reset the word buffer
+        } else {
+            // Accumulate characters for the current word
+            word[wordIndex++] = c;
+        }
+    }
+
+    // Finalize G-code with pen up and return to (0, 0)
+    if (penState != 0) {
+        sprintf(buffer, "S0\n");  // Pen up
+        SendCommands(buffer);
+    }
+    sprintf(buffer, "G0 X0 Y0\n");  // Return to origin
+    SendCommands(buffer);
+}
 
 
 int main()
 {
 
-    //char mode[]= {'8','N','1',0};
-    char buffer[100];
+    char buffer[256];
 
     // If we cannot open the port then give up immediately
     if ( CanRS232PortBeOpened() == -1 )
