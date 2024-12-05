@@ -235,8 +235,40 @@ int main()
     sprintf (buffer, "S0\n");
     SendCommands(buffer);
 
+    char fontFile[] = "SingleStrokeFont.txt";
+    loadFontData(fontFile);
 
-   
+    int height;
+    printf("Enter a text height between 4 and 10mm:");
+    scanf("%d",height);
+
+    if (height < 4 || height > 10) {
+        printf("Error: Height must be between 4 and 10mm.\n");
+        return 1;
+    }
+
+    char textFileName[256];
+    printf("Enter the name of the text file: ");
+    scanf("%s", textFileName);
+
+    FILE *textFile = fopen(textFileName, "r");
+    if (!textFile) {
+        printf("Error opening text file!\n");
+        return 1;
+    }
+
+   char text[MAX_TEXT_LENGTH] = {0};
+    size_t index = 0;
+
+    while (fgets(&text[index], sizeof(text) - index, textFile)) {
+        index += strlen(&text[index]);
+        if (index >= sizeof(text) - 1) {
+            break;
+        }
+    }
+
+    fclose(textFile);
+    generateGCode(text, (float)height);
 
     // Before we exit the program we need to close the COM port
     CloseRS232Port();
