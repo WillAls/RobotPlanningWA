@@ -74,6 +74,23 @@ void loadFontData(const char *filename) {
     fclose(file);  // Close the file
 }
 
+// Function to scale the font data based on the desired height
+void scaleFontData(float height) {
+    float scaleFactor = height / 18.0f;  // Calculate the scale factor
+
+    // Scale the movements for each character
+    for (int i = 0; i < MAX_CHARACTERS; i++) {
+        if (fontData[i].num_movements > 0) {  // Only process characters with movements
+            for (int j = 0; j < fontData[i].num_movements; j++) {
+                // Scale the X and Y coordinates and cast to integer
+                fontData[i].movements[j].x = (int)((float)fontData[i].movements[j].x * scaleFactor);
+                fontData[i].movements[j].y = (int)((float)fontData[i].movements[j].y * scaleFactor);
+            }
+        }
+    }
+}
+
+
 
 int main()
 {
