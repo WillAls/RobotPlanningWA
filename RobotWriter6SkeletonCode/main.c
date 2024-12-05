@@ -26,14 +26,8 @@ typedef struct {
 void loadFontData(const char *filename);
 void scaleFontData(float height);
 void generateGCode(const char *text, float height);
+void SendCommands (char *buffer );
 
-//Function to send commands to the robot
-void SendCommands (char *buffer )
-{
-    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
-    PrintBuffer (&buffer[0]);
-    WaitForReply();
-}
 
 // Font data to store all characters
 Character fontData[MAX_CHARACTERS];
@@ -239,14 +233,15 @@ int main()
     loadFontData(fontFile);
 
     int height;
-    printf("Enter a text height between 4 and 10mm:");
-    scanf("%d",height);
+    printf("Enter the desired text height (between 4 and 10mm): ");
+    scanf("%d", &height);
 
     if (height < 4 || height > 10) {
         printf("Error: Height must be between 4 and 10mm.\n");
+        CloseRS232Port();
         return 1;
     }
-
+    
     char textFileName[256];
     printf("Enter the name of the text file: ");
     scanf("%s", textFileName);
@@ -280,3 +275,10 @@ int main()
 // Send the data to the robot - note in 'PC' mode you need to hit space twice
 // as the dummy 'WaitForReply' has a getch() within the function.
 
+void SendCommands (char *buffer )
+{
+    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
+    PrintBuffer (&buffer[0]);
+    WaitForReply();
+    Sleep(100);
+}
