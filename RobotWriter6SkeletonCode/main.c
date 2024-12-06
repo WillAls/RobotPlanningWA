@@ -25,6 +25,13 @@ typedef struct {
 // Array to store font data for each character
 Character fontData[MAX_CHARACTERS];
 
+// Functions used in the code
+void SendCommands(char *buffer);
+FILE *openFile(const char *filename, const char *mode);
+void loadFontData(const char *filename);
+void scaleFontData(float height);
+void processWord(const char *word, int *x_pos, int *y_pos, int *penState, int charWidth, int maxLineWidth, int *lowestY, int lineGap, int minY);
+void generateGCode(const char *text, float height);
 
 // Function to open a file and return its pointer
 FILE *openFile(const char *filename, const char *mode) {
@@ -66,7 +73,6 @@ void loadFontData(const char *filename) {
 
     fclose(file);  
 }
-
 
 // Function to scale the font data based on the desired height
 void scaleFontData(float height) {
@@ -194,91 +200,75 @@ void generateGCode(const char *text, float height) {
     SendCommands(buffer);
 }
 
-
-int main()
-{
-
+// Main function
+int main() {
     char buffer[256];
 
-    // If we cannot open the port then give up immediately
-    if ( CanRS232PortBeOpened() == -1 )
-    {
-        printf ("\nUnable to open the COM port (specified in serial.h) ");
-        exit (0);
+    // Check if the COM port can be opened
+    if (CanRS232PortBeOpened() == -1) {
+        printf("\nUnable to open the COM port (specified in serial.h) ");
+        exit(0);  // Exit if COM port cannot be opened
     }
 
-    // Time to wake up the robot
-    printf ("\nAbout to wake up the robot\n");
+    printf("\nAbout to wake up the robot\n");
 
-    // We do this by sending a new-line
-    sprintf (buffer, "\n");
-     // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
-    PrintBuffer (&buffer[0]);
-    Sleep(100);
+    sprintf(buffer, "\n");  // Send wake-up signal
+    PrintBuffer(&buffer[0]);
+    Sleep(100);  
+    WaitForDollar();  // Wait for robot to be ready
 
-    // This is a special case - we wait  until we see a dollar ($)
-    WaitForDollar();
+    printf("\nThe robot is now ready to draw\n");
 
-    printf ("\nThe robot is now ready to draw\n");
-
-        //These commands get the robot into 'ready to draw mode' and need to be sent before any writing commands
-    sprintf (buffer, "G1 X0 Y0 F1000\n");
+    // Initialize the robot for drawing
+    sprintf(buffer, "G1 X0 Y0 F1000\n");
     SendCommands(buffer);
-    sprintf (buffer, "M3\n");
+    sprintf(buffer, "M3\n");
     SendCommands(buffer);
-    sprintf (buffer, "S0\n");
+    sprintf(buffer, "S0\n");
     SendCommands(buffer);
 
-    char fontFile[] = "SingleStrokeFont.txt";
-    loadFontData(fontFile);
+    loadFontData("SingleStrokeFont.txt");  // Load font data from file
 
-    int height;
     printf("Enter the desired text height (between 4 and 10mm): ");
-    scanf("%d", &height);
-
-    if (height < 4 || height > 10) {
+    float height;
+    scanf("%f", &height);
+    if (height < 4.0f || height > 10.0f) {
         printf("Error: Height must be between 4 and 10mm.\n");
         CloseRS232Port();
-        return 1;
+        return 1;  // Exit if height is out of range
     }
-    
+
+    // Ask for the text file containing the content to be drawn
     char textFileName[256];
     printf("Enter the name of the text file: ");
     scanf("%s", textFileName);
 
-    FILE *textFile = fopen(textFileName, "r");
-    if (!textFile) {
-        printf("Error opening text file!\n");
-        return 1;
-    }
-
-   char text[MAX_TEXT_LENGTH] = {0};
+    // Open the text file
+    FILE *textFile = openFile(textFileName, "r");
+    char text[MAX_TEXT_LENGTH] = {0};  // Buffer to store the text from the file
     size_t index = 0;
 
-    while (fgets(&text[index], sizeof(text) - index, textFile)) {
+    // Read the text from the file
+    while (fgets(&text[index], (size_t)(sizeof(text) - index), textFile)) {
         index += strlen(&text[index]);
         if (index >= sizeof(text) - 1) {
-            break;
+            break;  // Stop reading if the buffer is full
         }
     }
 
-    fclose(textFile);
-    generateGCode(text, (float)height);
+    fclose(textFile);  // Close the text file
+    generateGCode(text, height);  // Generate G-code for the text
 
-    // Before we exit the program we need to close the COM port
-    CloseRS232Port();
-    printf("Com port now closed\n");
+    CloseRS232Port();  // Close the COM port
+    printf("COM port now closed\n");
 
-    return (0);
+    return 0;
 }
 
-// Send the data to the robot - note in 'PC' mode you need to hit space twice
-// as the dummy 'WaitForReply' has a getch() within the function.
-
-void SendCommands (char *buffer )
-{
-    // printf ("Buffer to send: %s", buffer); // For diagnostic purposes only, normally comment out
-    PrintBuffer (&buffer[0]);
-    WaitForReply();
-    Sleep(100);
+// Function to send commands to the robot and wait for a reply
+void SendCommands(char *buffer) {
+    PrintBuffer(buffer);  // Print the buffer to the robot
+    WaitForReply();  
+    Sleep(100);  
 }
+
