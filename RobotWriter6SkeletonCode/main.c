@@ -5,68 +5,68 @@
 #include "serial.h"
 
 #define bdrate 115200               /* 115200 baud */
-#define MAX_MOVEMENTS 1000
-#define MAX_CHARACTERS 256
-#define MAX_TEXT_LENGTH 1024
+#define MAX_MOVEMENTS 1000          // Maximum number of movements a character can have
+#define MAX_CHARACTERS 256          // Maximum number of characters in the font
+#define MAX_TEXT_LENGTH 1024        // Maximum length of the input text
 
-// Structure to hold a single movement data (X, Y, Pen)
+// Structure to represent a movement (X, Y coordinates and pen state)
 typedef struct {
-    int x;    // X-coordinate
-    int y;    // Y-coordinate
+    int x;    // X-coordinate of the movement
+    int y;    // Y-coordinate of the movement
     int pen;  // Pen state: 0 = pen up, 1 = pen down
 } Movement;
 
-// Structure to hold character drawing data
+// Structure to represent a character, containing a number of movements
 typedef struct {
-    int num_movements;              // Number of movements for this character
-    Movement movements[MAX_MOVEMENTS];  // Array of movements
+    int num_movements;               // Number of movements for a character
+    Movement movements[MAX_MOVEMENTS];  // Array of movements for a character
 } Character;
 
-//Functions
-void loadFontData(const char *filename);
-void scaleFontData(float height);
-void generateGCode(const char *text, float height);
-void SendCommands (char *buffer );
-
-
-// Font data to store all characters
+// Array to store font data for each character
 Character fontData[MAX_CHARACTERS];
 
-// Function to load font data from file
-// The font file contains movement data for characters
-void loadFontData(const char *filename) {
-    FILE *file = fopen(filename, "r");  // Open the font file
+
+// Function to open a file and return its pointer
+FILE *openFile(const char *filename, const char *mode) {
+    FILE *file = fopen(filename, mode);
     if (!file) {
-        printf("Error opening font file!\n");
-        exit(1);
+        printf("Error opening file: %s\n", filename);
+        exit(1);  // Exit the program if file cannot be opened
     }
+    return file;
+}
 
-    char line[256];
-    int currentChar = -1;
-    int numMovements = 0;
+// Function to load font data from a file
+void loadFontData(const char *filename) {
+    FILE *file = openFile(filename, "r");
+    char line[256];  // Temporary buffer to read each line from the file
+    int currentChar = -1;  // Variable to track the current character being loaded
+    int numMovements = 0;  // Variable to count the movements for the current character
 
-    // Read the file line by line
+    // Read each line from the file
     while (fgets(line, sizeof(line), file)) {
-        int x, y, p;
-        if (strncmp(line, "999", 3) == 0) {  // Start of a new character definition
+        int x, y, p;  
+
+        // Check if the line indicates a new character
+        if (strncmp(line, "999", 3) == 0) {
             if (currentChar != -1) {
-                fontData[currentChar].num_movements = numMovements;  // Save the movements count
+                fontData[currentChar].num_movements = numMovements;  // Update movement count for the previous character
             }
-            // Parse the character ID and number of movements
-            sscanf(line, "999 %d %d", &currentChar, &numMovements);
-        } else {  // Parse movement data (X, Y, Pen state)
-            sscanf(line, "%d %d %d", &x, &y, &p);
-            fontData[currentChar].movements[numMovements++] = (Movement){x, y, p};
+            sscanf(line, "999 %d %d", &currentChar, &numMovements);  // Extract character ID and number of movements
+        } else {
+            sscanf(line, "%d %d %d", &x, &y, &p);  // Extract movement data (x, y, pen state)
+            fontData[currentChar].movements[numMovements++] = (Movement){x, y, p};  // Store the movement for the current character
         }
     }
 
-    // Finalize the last character's movements
+    // Update movement count for the last character
     if (currentChar != -1) {
         fontData[currentChar].num_movements = numMovements;
     }
 
-    fclose(file);  // Close the file
+    fclose(file);  
 }
+
 
 // Function to scale the font data based on the desired height
 void scaleFontData(float height) {
