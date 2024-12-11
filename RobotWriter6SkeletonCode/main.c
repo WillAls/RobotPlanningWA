@@ -91,6 +91,7 @@ void scaleFontData(float height) {
 // Function to process a word and convert it into G-code for the robot to draw
 void processWord(const char *word, int *x_pos, int *y_pos, int *penState, int charWidth, int maxLineWidth, int *lowestY, int lineGap, int minY) {
     char buffer[256];  // Temporary buffer to store G-code commands
+    
     // Calculate the width of the word based on character width
     int wordWidth = (int)((size_t)strlen(word) * (size_t)charWidth);
 
@@ -219,7 +220,7 @@ int main() {
 
     printf("\nThe robot is now ready to draw\n");
 
-    // Initialize the robot for drawing
+    // Initialise the robot for drawing
     sprintf(buffer, "G1 X0 Y0 F1000\n");
     SendCommands(buffer);
     sprintf(buffer, "M3\n");
